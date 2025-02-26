@@ -3,3 +3,4 @@ spacy
 easyocr
 opencv-python
 torch  
+python-decouple
