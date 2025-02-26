@@ -7,42 +7,18 @@ import easyocr
 import time
 
 app = Flask(__name__)
-# Initialize EasyOCR with advanced settings
+
+# Initialize EasyOCR with optimal settings
 reader = easyocr.Reader(
     ['en'], 
-    gpu=False,  # Set to False if you don't have a GPU
+    gpu=False,  # Change to True if you have a GPU
     model_storage_directory='model',
     download_enabled=True,
-    quantize=False,  # Better accuracy but slower
-    recog_network='english_g2'  # This is the "engine2" equivalent - more accurate model
+    recog_network='english_g2'  # Using the best model for English
 )
 
-def preprocess_for_easyocr(image):
-    """Apply enhanced preprocessing for better EasyOCR results"""
-    # Copy the original image
-    original = image.copy()
-    
-    # Convert to grayscale
-    gray = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
-    
-    # Apply bilateral filter - preserves edges while reducing noise
-    bilateral = cv2.bilateralFilter(gray, 9, 75, 75)
-    
-    # Apply contrast enhancement
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-    enhanced = clahe.apply(bilateral)
-    
-    # Apply slight sharpening
-    kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
-    sharpened = cv2.filter2D(enhanced, -1, kernel)
-    
-    return sharpened
-
 def extract_nid_fields(image):
-    """Extract NID fields using optimized EasyOCR"""
-    # Make a copy of the original image
-    original = image.copy()
-    
+    """Extract NID fields using direct EasyOCR capabilities"""
     # Dictionary to store results
     nid_data = {
         'name': '',
@@ -50,58 +26,40 @@ def extract_nid_fields(image):
         'id_number': ''
     }
     
-    # Enhanced preprocessing
-    preprocessed = preprocess_for_easyocr(original)
-    
-    # Run EasyOCR with advanced parameters
-    # paragraph=True groups text by paragraph
-    # detail=1 provides bounding box info too
-    # batch_size=1 for consistent behavior
+    # Start timing
     start_time = time.time()
+    
+    # Use EasyOCR directly on the image with optimal parameters
     results = reader.readtext(
-        preprocessed,
-        paragraph=True,
-        detail=1,
-        batch_size=1,
-        min_size=10,
-        slope_ths=0.2,
-        ycenter_ths=0.7,
-        height_ths=0.6,
-        width_ths=0.8,
-        decoder='beamsearch',
-        beamWidth=5
+        image,
+        paragraph=True,  # Group text by paragraphs
+        detail=1,        # Include bounding boxes 
+        decoder='greedy',
+        beamWidth=5,
+        contrast_ths=0.1,
+        adjust_contrast=0.5,
+        text_threshold=0.7,
+        low_text=0.4,
+        link_threshold=0.4,
     )
+    
     end_time = time.time()
     
-    # Extract text and confidence - handle different result formats
+    # Extract text from results
     text_blocks = []
-    
-    # Fixed: Handle different result formats from EasyOCR
     for result in results:
+        # EasyOCR returns [bounding_box, text, confidence]
+        # Handle different result formats safely
         try:
-            if len(result) == 3:
-                # Format: [bbox, text, prob]
-                bbox, text, prob = result
-                if prob > 0.2:  # Adjust threshold as needed
-                    text_blocks.append(text)
-            elif len(result) == 2:
-                # Format: [bbox, text]
-                bbox, text = result
+            if len(result) >= 2:  # As long as we have bbox and text
+                text = result[1]
                 text_blocks.append(text)
-            else:
-                # Just in case it returns a different format
-                if isinstance(result, str):
-                    text_blocks.append(result)
         except Exception as e:
-            print(f"Error processing OCR result: {e}")
+            print(f"Error processing result: {e}")
             continue
     
+    # Join all text blocks
     all_text = "\n".join(text_blocks)
-    
-    # Store visualization data
-    region_images = {
-        'preprocessed': preprocessed
-    }
     
     # Extract name - look for name patterns
     name_patterns = [
@@ -145,13 +103,13 @@ def extract_nid_fields(image):
             nid_data['id_number'] = re.sub(r'\s', '', id_text)
             break
     
-    # Add processing time info
+    # Processing info
     processing_info = {
         'time_taken': f"{(end_time - start_time):.2f} seconds",
         'model': 'english_g2'
     }
     
-    return nid_data, region_images, all_text, processing_info
+    return nid_data, all_text, processing_info
 
 @app.route('/process_image', methods=['POST'])
 def process_image():
@@ -163,7 +121,7 @@ def process_image():
 
     # Load image
     image = cv2.imread('uploaded_image.jpg')
-    nid_data, _, _, _ = extract_nid_fields(image)
+    nid_data, _, _ = extract_nid_fields(image)
 
     return jsonify(nid_data)
 
@@ -188,73 +146,64 @@ def test_page():
         '''
         return render_template_string(html)
     
-    # Extract data using optimized EasyOCR
-    nid_data, region_images, all_text, processing_info = extract_nid_fields(image)
-    
-    # Save the preprocessed image for display
-    preprocessed_path = os.path.join('testimages', 'preprocessed_image.png')
-    cv2.imwrite(preprocessed_path, region_images['preprocessed'])
+    # Extract data using direct EasyOCR
+    nid_data, all_text, processing_info = extract_nid_fields(image)
     
     # Create HTML to display results
     html = '''
     <!DOCTYPE html>
     <html>
     <head>
-        <title>NID OCR Test with Advanced EasyOCR</title>
+        <title>NID Card OCR</title>
         <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            h1 { color: #333; }
-            .container { display: flex; flex-direction: column; gap: 20px; }
+            body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; color: #333; }
+            h1 { color: #2c3e50; }
+            .container { display: flex; flex-direction: column; gap: 20px; max-width: 1200px; margin: 0 auto; }
             .row { display: flex; gap: 20px; margin-bottom: 20px; }
-            .image-container { flex: 1; }
-            .text-container { flex: 1; border: 1px solid #ccc; padding: 15px; border-radius: 5px; }
-            img { max-width: 100%; border: 1px solid #ddd; }
-            pre { white-space: pre-wrap; }
-            .comparison { background-color: #f5f5f5; padding: 15px; border-radius: 5px; }
-            .field { margin-bottom: 10px; padding: 10px; background-color: #e9ecef; border-radius: 5px; }
-            .field-name { font-weight: bold; color: #495057; }
-            .field-value { font-family: monospace; font-size: 1.1em; }
-            .info { color: #6c757d; font-style: italic; margin-top: 15px; }
+            .image-container { flex: 1; box-shadow: 0 2px 5px rgba(0,0,0,0.1); padding: 15px; border-radius: 8px; }
+            .text-container { flex: 1; border: 1px solid #ddd; padding: 20px; border-radius: 8px; background-color: #f9f9f9; }
+            img { max-width: 100%; border-radius: 4px; }
+            pre { white-space: pre-wrap; background-color: #f4f6f8; padding: 15px; border-radius: 4px; font-size: 14px; }
+            .field { margin-bottom: 15px; padding: 15px; background-color: #e8f4f8; border-radius: 8px; border-left: 4px solid #3498db; }
+            .field-name { font-weight: bold; color: #2980b9; margin-bottom: 5px; }
+            .field-value { font-family: monospace; font-size: 1.2em; background-color: #fff; padding: 8px; border-radius: 4px; }
+            .info { font-style: italic; margin-top: 15px; color: #7f8c8d; display: flex; justify-content: space-between; }
+            .badge { background-color: #3498db; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
         </style>
     </head>
     <body>
-        <h1>NID OCR Test with Advanced EasyOCR</h1>
+        <h1>🔎 NID Card OCR Results</h1>
         <div class="container">
             <div class="row">
                 <div class="image-container">
-                    <h2>Original Image</h2>
-                    <img src="/testimages/image.png" alt="Test NID Card">
+                    <h2>📷 Original Image</h2>
+                    <img src="/testimages/image.png" alt="NID Card">
                 </div>
-                <div class="image-container">
-                    <h2>Preprocessed Image</h2>
-                    <img src="/testimages/preprocessed_image.png" alt="Preprocessed Image">
-                </div>
-            </div>
-            
-            <div class="text-container">
-                <h2>Extracted Text (EasyOCR)</h2>
-                <pre>{{ all_text }}</pre>
-                <div class="info">
-                    <p>Model: {{ processing_info.model }}</p>
-                    <p>Processing time: {{ processing_info.time_taken }}</p>
+                <div class="text-container">
+                    <h2>📝 Raw Extracted Text</h2>
+                    <pre>{{ all_text }}</pre>
+                    <div class="info">
+                        <span>Model: <span class="badge">{{ processing_info.model }}</span></span>
+                        <span>Processing time: {{ processing_info.time_taken }}</span>
+                    </div>
                 </div>
             </div>
             
-            <div class="comparison">
-                <h2>Extracted Fields</h2>
+            <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; border-top: 4px solid #2ecc71;">
+                <h2>🎯 Extracted Information</h2>
                 <div class="field">
-                    <span class="field-name">Name:</span>
-                    <div class="field-value">{{ nid_data.name }}</div>
+                    <div class="field-name">👤 Name:</div>
+                    <div class="field-value">{{ nid_data.name or "Not detected" }}</div>
                 </div>
                 
                 <div class="field">
-                    <span class="field-name">Date of Birth:</span>
-                    <div class="field-value">{{ nid_data.date_of_birth }}</div>
+                    <div class="field-name">🎂 Date of Birth:</div>
+                    <div class="field-value">{{ nid_data.date_of_birth or "Not detected" }}</div>
                 </div>
                 
                 <div class="field">
-                    <span class="field-name">ID Number:</span>
-                    <div class="field-value">{{ nid_data.id_number }}</div>
+                    <div class="field-name">🆔 ID Number:</div>
+                    <div class="field-value">{{ nid_data.id_number or "Not detected" }}</div>
                 </div>
             </div>
         </div>
