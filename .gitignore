@@ -1,4 +1,5 @@
 /static
-/testimages
+/testimages/*
 /venv
 /model
+/__pycache__
