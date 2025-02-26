@@ -5,7 +5,7 @@ import cv2
 import easyocr
 import spacy
 
-# Load the spaCy English model
+# Load the spaCy English model.
 nlp = spacy.load("en_core_web_sm")
 
 # Initialize EasyOCR – if no GPU is available, fall back to CPU.
@@ -35,8 +35,8 @@ def clean_name(name):
 
 def extract_front_name(cleaned_text):
     """
-    Extract the front side name using a strict pattern with "Nama" or "Name".
-    If that fails, try a looser fallback.
+    Extract the front side name using a pattern that looks for "Nama" or "Name".
+    Try strict patterns first, then looser ones.
     """
     patterns = [
         r"(?:Nama|Name)[:\s]+((?:[A-Z][a-zA-Z\.\']+\s+){1,5}[A-Z][a-zA-Z\.\']+)",
@@ -51,8 +51,8 @@ def extract_front_name(cleaned_text):
 def extract_mrz_name(mrz_text):
     """
     Extract name components from MRZ text.
-    The function takes the last line containing many '<' characters,
-    splits on '<<' then on '<', cleans each part and filters out obvious noise.
+    The function looks for the last line with many '<' characters,
+    splits on '<<' and then on '<', cleans each part and filters noise.
     """
     lines = mrz_text.split('\n')
     mrz_line = None
@@ -68,7 +68,7 @@ def extract_mrz_name(mrz_text):
     for segment in segments:
         parts = [p.strip() for p in segment.split('<') if p.strip()]
         for part in parts:
-            # Remove digits and common noise characters
+            # Remove digits and noise characters.
             cleaned = re.sub(r'[0-9BGD]', '', part)
             cleaned = re.sub(r'[^A-Z]', '', cleaned)
             if cleaned and len(cleaned) >= 2:
@@ -76,7 +76,7 @@ def extract_mrz_name(mrz_text):
                 if cleaned in ['MD', 'KD']:
                     cleaned = 'MD'
                 name_parts.append(cleaned)
-    # Remove duplicates and known noisy strings
+    # Remove duplicates & known noisy entries.
     filtered_parts = []
     seen = set()
     for part in name_parts:
@@ -88,7 +88,7 @@ def extract_mrz_name(mrz_text):
 def find_best_name_arrangement(front_name, mrz_parts):
     """
     Try all permutations of MRZ parts and score them against the front name.
-    If the candidate deviates too much from the front name, it gets rejected.
+    Only return a candidate if sufficient similarity exists.
     """
     if not mrz_parts:
         return None, 0
@@ -125,8 +125,9 @@ def find_best_name_arrangement(front_name, mrz_parts):
 
 def extract_nid_fields(image):
     """
-    Extract and validate NID fields using both front and back side data.
-    Returns a dictionary of the extracted information.
+    Extract and validate NID fields (like Name, Date of Birth, ID Number)
+    from the given image using OCR.
+    Returns a dictionary with the extracted information.
     """
     nid_data = {
         'Name': '',
@@ -135,7 +136,7 @@ def extract_nid_fields(image):
         'Full extracted text': ''
     }
 
-    # Get OCR results
+    # Get OCR results.
     results = reader.readtext(
         image,
         paragraph=True,
@@ -161,7 +162,7 @@ def extract_nid_fields(image):
     full_text = "\n".join(text_blocks)
     nid_data['Full extracted text'] = full_text
 
-    # Clean text: remove non-ASCII characters and normalize whitespace.
+    # Clean text: remove non-ASCII and extra whitespace.
     cleaned_text = re.sub(r'[^\x00-\x7F]+', ' ', full_text)
     cleaned_text = re.sub(r'\s+', ' ', cleaned_text)
 
@@ -170,7 +171,6 @@ def extract_nid_fields(image):
     # Extract MRZ name parts.
     mrz_parts = extract_mrz_name(cleaned_text)
 
-    # Decide final name based on matching the MRZ candidate with the front name.
     if front_name and mrz_parts:
         arranged_name, similarity = find_best_name_arrangement(front_name, mrz_parts)
         print(f"Debug - Front name: {front_name}")
