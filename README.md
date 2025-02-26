@@ -1,87 +1,100 @@
-# 📝 NID Card OCR Extractor
+# NID Card OCR Extractor
 
-Hey there! Welcome to the NID Card OCR project - a smart tool that helps you extract information from National ID cards without the hassle of manual data entry. Perfect for businesses, government offices, or anyone dealing with identity verification!
+Welcome to the NID Card OCR Extractor project. This tool is designed to automatically extract key information from National ID cards. It’s ideal for organizations needing fast and accurate identity verification without manual data entry.
 
-## ✨ What Can It Do?
+## Features
 
-- 🔍 **Smart Extraction**: Automatically pulls out names, birth dates, and ID numbers from NID cards
-- 🖼️ **Image Enhancement**: Makes even low-quality card photos readable with advanced preprocessing
-- 🌐 **User-Friendly Interface**: Check out the results in real-time through our simple web interface
-- 🔌 **Ready-to-Use API**: Easily integrate with your existing systems and applications
-- 🚀 **Powered by EasyOCR**: Uses the cutting-edge english_g2 model for exceptional accuracy
+- **Accurate Extraction**: Automatically retrieves names, birth dates, and ID numbers from NID card images.
+- **Image Enhancement**: Processes and enhances low-quality images to improve OCR accuracy.
+- **Simple Web Interface**: View results in real time using a user-friendly API.
+- **Integrable API**: Easily integrate the extractor into your existing systems.
+- **Powered by EasyOCR**: Utilizes the latest EasyOCR models for exceptional performance.
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Installation
 
-First time using this tool? No worries! Follow these simple steps:
-
-1. **Get the code**:
+1. **Clone the Repository**:
 
    ```bash
    git clone https://github.com/yourusername/nid-ocr-project.git
    cd nid-ocr-project
    ```
 
-2. **Set up your environment**:
+2. **Set Up Your Environment**:
+
+   Create a virtual environment and install the dependencies:
 
    ```bash
-   # Create a cozy virtual environment for our dependencies
    python -m venv venv
+   ```
 
-   # Activate it (choose the right command for your system)
-   # On Windows:
-   venv\Scripts\activate
-   # On macOS/Linux:
-   source venv/bin/activate
+   Activate the virtual environment:
 
-   # Install all the necessary packages
+   - On Windows:
+     ```bash
+     venv\Scripts\activate
+     ```
+   - On macOS/Linux:
+     ```bash
+     source venv/bin/activate
+     ```
+
+   Install the required packages:
+
+   ```bash
    pip install -r requirements.txt
    ```
 
-3. **Let's run it!**:
+3. **Run the Application**:
+
+   Start the Flask server:
 
    ```bash
    python app.py
    ```
 
-4. That's it! Now open your browser and go to http://localhost:5000/
+   Open your browser and navigate to http://localhost:5000/ to see the API running.
 
-## 🔌 Using the API
+## Using the API
 
-Want to integrate this with your own application? It's super straightforward!
+You can integrate the API into your own applications. Here is an example of how to send a request using Python:
 
 ```python
 import requests
 
-# Your NID card image - replace with your actual image path
+# Path to your NID card image
 card_image = "path/to/nid_image.jpg"
 
-# Send it to the API
 url = "http://localhost:5000/process_image"
-files = {"image": open(card_image, "rb")}
-response = requests.post(url, files=files)
 
-# Get the extracted details
+with open(card_image, "rb") as image_file:
+    files = {"image": image_file}
+    data = {
+        "Name": "John Doe",
+        "Date of Birth": "01 Jan 1990"
+    }
+    response = requests.post(url, data=data, files=files)
+
 nid_data = response.json()
-print("✅ Extracted information:")
-print(f"👤 Name: {nid_data['name']}")
-print(f"🎂 Date of Birth: {nid_data['date_of_birth']}")
-print(f"🆔 ID Number: {nid_data['id_number']}")
+print("Extracted Information:")
+print(f"Name: {nid_data['Name']}")
+print(f"Date of Birth: {nid_data['Date of birth']}")
+print(f"ID Number: {nid_data['ID Number']}")
 ```
 
-## ⚙️ Customization
+## Customization
 
-Want to tweak things to fit your needs? Here's how:
+You can tailor the extractor to better fit your needs:
 
-- **Got a GPU?** Change `gpu=False` to `gpu=True` in app.py for lightning-fast processing!
-- **Need better accuracy?** Try adjusting the confidence threshold (currently set to 0.2)
-- **Have special images?** Play with the preprocessing parameters to get the best results
+- **GPU Support**: If you have a compatible GPU, adjust the EasyOCR configuration in the code to enable GPU acceleration.
+- **Preprocessing Parameters**: Modify the preprocessing settings to handle different image qualities.
+- **Threshold Adjustments**: Fine-tune the detection thresholds to improve accuracy based on your specific dataset.
 
-## 🤔 Need Help?
+## Support
 
-Feel free to open an issue if you run into problems or have questions. We're here to help make your ID processing smoother and faster!
+If you encounter any issues or have questions, please open an issue in the GitHub repository. Contributions and suggestions are always welcome.
 
-## 🔒 Privacy First
+## Privacy Notice
 
-Remember that ID cards contain sensitive information. This tool is designed for legitimate use cases with proper consent. Always ensure you're complying with local privacy laws when processing identification documents.
+This tool processes sensitive personal information. Make sure to use it only for legitimate purposes and comply with all applicable data protection regulations.
