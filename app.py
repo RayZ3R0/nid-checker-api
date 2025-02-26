@@ -57,7 +57,6 @@ def extract_nid_fields(image):
     # paragraph=True groups text by paragraph
     # detail=1 provides bounding box info too
     # batch_size=1 for consistent behavior
-    # Set a minimum confidence threshold
     start_time = time.time()
     results = reader.readtext(
         preprocessed,
@@ -74,12 +73,28 @@ def extract_nid_fields(image):
     )
     end_time = time.time()
     
-    # Extract text and confidence
+    # Extract text and confidence - handle different result formats
     text_blocks = []
-    for (bbox, text, prob) in results:
-        # Only include text with reasonable confidence
-        if prob > 0.2:  # Adjust threshold as needed
-            text_blocks.append(text)
+    
+    # Fixed: Handle different result formats from EasyOCR
+    for result in results:
+        try:
+            if len(result) == 3:
+                # Format: [bbox, text, prob]
+                bbox, text, prob = result
+                if prob > 0.2:  # Adjust threshold as needed
+                    text_blocks.append(text)
+            elif len(result) == 2:
+                # Format: [bbox, text]
+                bbox, text = result
+                text_blocks.append(text)
+            else:
+                # Just in case it returns a different format
+                if isinstance(result, str):
+                    text_blocks.append(result)
+        except Exception as e:
+            print(f"Error processing OCR result: {e}")
+            continue
     
     all_text = "\n".join(text_blocks)
     
@@ -159,6 +174,19 @@ def test_page():
     
     # Process the image
     image = cv2.imread(test_image_path)
+    
+    # Handle case where image might not be found
+    if image is None:
+        html = '''
+        <html>
+        <head><title>Error</title></head>
+        <body>
+            <h1>Error: Test image not found</h1>
+            <p>Please make sure you have an image named "image.png" in the testimages directory.</p>
+        </body>
+        </html>
+        '''
+        return render_template_string(html)
     
     # Extract data using optimized EasyOCR
     nid_data, region_images, all_text, processing_info = extract_nid_fields(image)
@@ -242,6 +270,7 @@ def serve_image(filename):
     return send_from_directory('testimages', filename)
 
 if __name__ == '__main__':
+    # Create testimages directory if it doesn't exist
     if not os.path.exists('testimages'):
         os.makedirs('testimages')
     
