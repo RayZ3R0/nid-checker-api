@@ -1,4 +1,3 @@
-```markdown
 # NID Card OCR Extractor
 
 Extract information from National ID cards using advanced OCR techniques and image preprocessing.
@@ -14,6 +13,7 @@ Extract information from National ID cards using advanced OCR techniques and ima
 ## Installation
 
 1. Clone the repository:
+
 ```
 
 git clone https://github.com/yourusername/nid-ocr-project.git
@@ -22,6 +22,7 @@ cd nid-ocr-project
 ```
 
 2. Create a virtual environment and install dependencies:
+
 ```
 
 python -m venv venv
@@ -31,11 +32,12 @@ pip install -r requirements.txt
 ```
 
 3. Run the application:
+
 ```
 
 python app.py
 
-````
+```
 
 4. Open your browser and navigate to http://localhost:5000/
 
@@ -53,7 +55,7 @@ nid_data = response.json()
 
 print(nid_data)
 # {'name': 'JOHN DOE', 'date_of_birth': '01 Jan 1990', 'id_number': '1234567890'}
-````
+```
 
 ## Configuration
 
