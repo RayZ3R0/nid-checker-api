@@ -3,3 +3,4 @@
 /venv
 /model
 /__pycache__
+client.py
