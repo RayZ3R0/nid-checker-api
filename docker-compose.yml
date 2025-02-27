@@ -1,0 +1,31 @@
+version: '3'
+
+services:
+  api:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    restart: always
+  
+  worker:
+    build: .
+    command: celery -A tasks worker --loglevel=info
+    volumes:
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    restart: always
+  
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    restart: always

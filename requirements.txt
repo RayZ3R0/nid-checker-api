@@ -2,5 +2,9 @@ flask
 spacy
 easyocr
 opencv-python
-torch  
+torch
 python-decouple
+gunicorn
+Flask-HTTPAuth
+celery
+redis
