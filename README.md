@@ -2,24 +2,24 @@
 
 ## Table of Contents
 
-- Introduction
-- Features
-- System Requirements
-- Installation
-  - Windows
-  - macOS
-  - Linux (Ubuntu/Debian)
-  - Linux (Fedora)
-  - Linux (Arch)
-- Configuration
-- Running the Application
-  - Development Mode
-  - Production Mode
-- API Documentation
-- Security Considerations
-- Performance Optimization
-- Troubleshooting
-- Privacy and Compliance
+- [Introduction](#introduction)
+- [Features](#features)
+- [System Requirements](#system-requirements)
+- [Installation](#installation)
+  - [Windows](#windows)
+  - [macOS](#macos)
+  - [Linux (Ubuntu/Debian)](#linux-ubuntudebian)
+  - [Linux (Fedora)](#linux-fedora)
+  - [Linux (Arch)](#linux-arch)
+- [Configuration](#configuration)
+- [Running the Application](#running-the-application)
+  - [Development Mode](#development-mode)
+  - [Production Mode](#production-mode)
+- [API Documentation](#api-documentation)
+- [Security Considerations](#security-considerations)
+- [Performance Optimization](#performance-optimization)
+- [Troubleshooting](#troubleshooting)
+- [Privacy and Compliance](#privacy-and-compliance)
 
 ## Introduction
 
