@@ -77,17 +77,28 @@ def process_image():
     provided_name = request.form.get("Name", "").strip()
     provided_dob = request.form.get("Date of Birth", "").strip()
 
-    similarity = {"name_similarity": None, "dob_similarity": None}
-    
-    extracted_name = result.get("Name", "").strip()
-    if provided_name and extracted_name:
-        similarity["name_similarity"] = round(
-            difflib.SequenceMatcher(None, provided_name.upper(), extracted_name.upper()).ratio(), 2)
-    
-    extracted_dob = result.get("Date of birth", "").strip()
-    if provided_dob and extracted_dob:
-        similarity["dob_similarity"] = round(
-            difflib.SequenceMatcher(None, provided_dob.upper(), extracted_dob.upper()).ratio(), 2)
+    # Initialize similarity dictionary
+    if not provided_name and not provided_dob:
+        # No comparison data provided at all
+        similarity = {"status": "no_comparison_data_provided"}
+    else:
+        similarity = {"status": "partial_comparison", "name_similarity": None, "dob_similarity": None}
+        
+        # Process name similarity if available
+        extracted_name = result.get("Name", "").strip()
+        if provided_name and extracted_name:
+            similarity["name_similarity"] = round(
+                difflib.SequenceMatcher(None, provided_name.upper(), extracted_name.upper()).ratio(), 2)
+        elif provided_name:
+            similarity["name_similarity"] = "no_extracted_name_available"
+            
+        # Process DOB similarity if available
+        extracted_dob = result.get("Date of birth", "").strip()
+        if provided_dob and extracted_dob:
+            similarity["dob_similarity"] = round(
+                difflib.SequenceMatcher(None, provided_dob.upper(), extracted_dob.upper()).ratio(), 2)
+        elif provided_dob:
+            similarity["dob_similarity"] = "no_extracted_dob_available"
     
     result["similarity"] = similarity
 

@@ -14,6 +14,6 @@ data = {
 
 with open(image_path, "rb") as f:
     files = {"image": f}
-    response = requests.post(url, data=data, files=files)
+    response = requests.post(url,  files=files)
 
 print(response.json())
