@@ -60,8 +60,8 @@ This tool is ideal for organizations requiring fast and accurate identity verifi
 3. **Clone the Repository:**
 
    ```powershell
-   git clone https://github.com/yourusername/nid-ocr-project.git
-   cd nid-ocr-project
+   git clone https://github.com/RayZ3R0/nid-checker-api.git
+   cd nid-checker-api
    ```
 
 4. **Create a Virtual Environment:**
@@ -99,8 +99,8 @@ This tool is ideal for organizations requiring fast and accurate identity verifi
 3. **Clone the Repository:**
 
    ```bash
-   git clone https://github.com/yourusername/nid-ocr-project.git
-   cd nid-ocr-project
+   git clone https://github.com/RayZ3R0/nid-checker-api.git
+   cd nid-checker-api
    ```
 
 4. **Create a Virtual Environment:**
@@ -133,8 +133,8 @@ This tool is ideal for organizations requiring fast and accurate identity verifi
 2. **Clone the Repository:**
 
    ```bash
-   git clone https://github.com/yourusername/nid-ocr-project.git
-   cd nid-ocr-project
+   git clone https://github.com/RayZ3R0/nid-checker-api.git
+   cd nid-checker-api
    ```
 
 3. **Create a Virtual Environment:**
@@ -170,8 +170,8 @@ This tool is ideal for organizations requiring fast and accurate identity verifi
 2. **Clone the Repository:**
 
    ```bash
-   git clone https://github.com/yourusername/nid-ocr-project.git
-   cd nid-ocr-project
+   git clone https://github.com/RayZ3R0/nid-checker-api.git
+   cd nid-checker-api
    ```
 
 3. **Create a Virtual Environment:**
@@ -207,8 +207,8 @@ This tool is ideal for organizations requiring fast and accurate identity verifi
 2. **Clone the Repository:**
 
    ```bash
-   git clone https://github.com/yourusername/nid-ocr-project.git
-   cd nid-ocr-project
+   git clone https://github.com/RayZ3R0/nid-checker-api.git
+   cd nid-checker-api
    ```
 
 3. **Create a Virtual Environment:**
