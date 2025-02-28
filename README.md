@@ -1,4 +1,4 @@
-# NID Card OCR Extractor
+# NID Card OCR Extractor with Podman (Linux)
 
 ## Table of Contents
 
@@ -6,15 +6,16 @@
 - [Features](#features)
 - [System Requirements](#system-requirements)
 - [Installation](#installation)
-  - [Windows](#windows)
-  - [macOS](#macos)
-  - [Linux (Ubuntu/Debian)](#linux-ubuntudebian)
-  - [Linux (Fedora)](#linux-fedora)
-  - [Linux (Arch)](#linux-arch)
+  - [Windows (using Docker)](#windows-using-docker)
+  - [macOS (using Docker)](#macos-using-docker)
+  - [Linux with Podman](#linux-with-podman)
+    - [Ubuntu/Debian](#linux-ubuntudebian)
+    - [Fedora](#linux-fedora)
+    - [Arch Linux](#linux-arch)
 - [Configuration](#configuration)
 - [Running the Application](#running-the-application)
   - [Development Mode](#development-mode)
-  - [Production Mode](#production-mode)
+  - [Production Mode with Podman](#production-mode-with-podman)
 - [API Documentation](#api-documentation)
 - [Security Considerations](#security-considerations)
 - [Performance Optimization](#performance-optimization)
@@ -34,7 +35,7 @@ This tool is ideal for organizations requiring fast and accurate identity verifi
 - **Data Verification**: Compares extracted information with provided data and returns similarity scores.
 - **Scalable Architecture**: Uses Celery and Redis for background processing to handle high load scenarios.
 - **Secure API**: Implements authentication and secure file handling.
-- **Containerized Deployment**: Includes Docker configuration for easy deployment.
+- **Containerized Deployment**: Includes Podman configuration for rootless, secure deployment.
 - **Production-Ready**: Optimized for performance and security in production environments.
 
 ## System Requirements
@@ -46,82 +47,9 @@ This tool is ideal for organizations requiring fast and accurate identity verifi
 
 ## Installation
 
-### Windows
+### Linux with Podman
 
-1. **Install Python:**
-
-   - Download and install Python 3.9+ from [python.org](https://www.python.org/downloads/windows/)
-   - During installation, check "Add Python to PATH"
-
-2. **Install Git:**
-
-   - Download and install from [git-scm.com](https://git-scm.com/download/win)
-
-3. **Clone the Repository:**
-
-   ```powershell
-   git clone https://github.com/RayZ3R0/nid-checker-api.git
-   cd nid-checker-api
-   ```
-
-4. **Create a Virtual Environment:**
-
-   ```powershell
-   python -m venv venv
-   venv\Scripts\activate
-   ```
-
-5. **Install Dependencies:**
-
-   ```powershell
-   pip install -r requirements.txt
-   python -m spacy download en_core_web_sm
-   ```
-
-6. **Environment Setup:**
-   - Create a .env file in the project root using the provided template
-   - For Windows, use Docker Desktop to run Redis if needed
-
-### macOS
-
-1. **Install Homebrew:**
-
-   ```bash
-   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-   ```
-
-2. **Install Python and Git:**
-
-   ```bash
-   brew install python git
-   ```
-
-3. **Clone the Repository:**
-
-   ```bash
-   git clone https://github.com/RayZ3R0/nid-checker-api.git
-   cd nid-checker-api
-   ```
-
-4. **Create a Virtual Environment:**
-
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-
-5. **Install Dependencies:**
-
-   ```bash
-   pip install -r requirements.txt
-   python -m spacy download en_core_web_sm
-   ```
-
-6. **Environment Setup:**
-   - Create a .env file in the project root
-   - Install Redis if needed: `brew install redis`
-
-### Linux (Ubuntu/Debian)
+#### Linux (Ubuntu/Debian)
 
 1. **Update System and Install Prerequisites:**
 
@@ -130,35 +58,45 @@ This tool is ideal for organizations requiring fast and accurate identity verifi
    sudo apt install -y python3 python3-pip python3-venv git libgl1-mesa-glx libglib2.0-0
    ```
 
-2. **Clone the Repository:**
+2. **Install Podman and Podman Compose:**
 
    ```bash
-   git clone https://github.com/RayZ3R0/nid-checker-api.git
-   cd nid-checker-api
+   # For Ubuntu 20.04+
+   sudo apt install -y podman podman-compose
+
+   # If podman-compose is not available, install via pip
+   pip3 install podman-compose
    ```
 
-3. **Create a Virtual Environment:**
+3. **Clone the Repository:**
+
+   ```bash
+   git clone https://github.com/yourusername/nid-ocr-project.git
+   cd nid-ocr-project
+   ```
+
+4. **Create a Virtual Environment (for development):**
 
    ```bash
    python3 -m venv venv
    source venv/bin/activate
    ```
 
-4. **Install Dependencies:**
+5. **Install Dependencies (for development):**
 
    ```bash
    pip install -r requirements.txt
    python -m spacy download en_core_web_sm
    ```
 
-5. **Install Redis:**
+6. **Install Redis (for development):**
    ```bash
    sudo apt install -y redis-server
    sudo systemctl enable redis-server
    sudo systemctl start redis-server
    ```
 
-### Linux (Fedora)
+#### Linux (Fedora)
 
 1. **Update System and Install Prerequisites:**
 
@@ -167,35 +105,44 @@ This tool is ideal for organizations requiring fast and accurate identity verifi
    sudo dnf install -y python3 python3-pip git mesa-libGL glib2
    ```
 
-2. **Clone the Repository:**
+2. **Install Podman (pre-installed on most Fedora systems):**
 
    ```bash
-   git clone https://github.com/RayZ3R0/nid-checker-api.git
-   cd nid-checker-api
+   sudo dnf install -y podman podman-compose
+
+   # If podman-compose is not available
+   pip3 install podman-compose
    ```
 
-3. **Create a Virtual Environment:**
+3. **Clone the Repository:**
+
+   ```bash
+   git clone https://github.com/yourusername/nid-ocr-project.git
+   cd nid-ocr-project
+   ```
+
+4. **Create a Virtual Environment (for development):**
 
    ```bash
    python3 -m venv venv
    source venv/bin/activate
    ```
 
-4. **Install Dependencies:**
+5. **Install Dependencies (for development):**
 
    ```bash
    pip install -r requirements.txt
    python -m spacy download en_core_web_sm
    ```
 
-5. **Install Redis:**
+6. **Install Redis (for development):**
    ```bash
    sudo dnf install -y redis
    sudo systemctl enable redis
    sudo systemctl start redis
    ```
 
-### Linux (Arch)
+#### Linux (Arch)
 
 1. **Update System and Install Prerequisites:**
 
@@ -204,28 +151,37 @@ This tool is ideal for organizations requiring fast and accurate identity verifi
    sudo pacman -S python python-pip git mesa glib2
    ```
 
-2. **Clone the Repository:**
+2. **Install Podman:**
 
    ```bash
-   git clone https://github.com/RayZ3R0/nid-checker-api.git
-   cd nid-checker-api
+   sudo pacman -S podman
+
+   # Install podman-compose via pip
+   pip install podman-compose
    ```
 
-3. **Create a Virtual Environment:**
+3. **Clone the Repository:**
+
+   ```bash
+   git clone https://github.com/yourusername/nid-ocr-project.git
+   cd nid-ocr-project
+   ```
+
+4. **Create a Virtual Environment (for development):**
 
    ```bash
    python -m venv venv
    source venv/bin/activate
    ```
 
-4. **Install Dependencies:**
+5. **Install Dependencies (for development):**
 
    ```bash
    pip install -r requirements.txt
    python -m spacy download en_core_web_sm
    ```
 
-5. **Install Redis:**
+6. **Install Redis (for development):**
    ```bash
    sudo pacman -S redis
    sudo systemctl enable redis
@@ -268,17 +224,20 @@ This tool is ideal for organizations requiring fast and accurate identity verifi
 1. **Start Redis** (if not already running):
 
    ```bash
-   # Linux/macOS
+   # Linux
    redis-server
 
-   # Windows (using Docker)
-   docker run -p 6379:6379 redis
+   # Or using podman
+   podman run -p 6379:6379 redis
    ```
 
 2. **Start the Celery Worker**:
 
    ```bash
    # Activate your virtual environment first
+   source venv/bin/activate
+
+   # Run celery worker
    celery -A tasks worker --loglevel=info
    ```
 
@@ -292,37 +251,104 @@ This tool is ideal for organizations requiring fast and accurate identity verifi
    - The API will be running at `http://localhost:5000/`
    - Use the test endpoint at `http://localhost:5000/` to verify the API is working
 
-### Production Mode
+### Production Mode with Podman
 
-For production environments, we strongly recommend using Docker:
+For production environments, we recommend using Podman:
 
-1. **Make sure Docker and Docker Compose are installed**:
+1. **Create or convert the docker-compose.yml to podman-compose.yml**:
 
-   - [Docker Installation Guide](https://docs.docker.com/get-docker/)
-   - [Docker Compose Installation Guide](https://docs.docker.com/compose/install/)
+   ```yaml
+   version: "3"
 
-2. **Build and Run the Docker Containers**:
+   services:
+     api:
+       build: .
+       ports:
+         - "5000:5000"
+       volumes:
+         - ./logs:/app/logs:Z
+       env_file:
+         - .env
+       depends_on:
+         - redis
+       restart: always
+
+     worker:
+       build: .
+       command: celery -A tasks worker --loglevel=info
+       volumes:
+         - ./logs:/app/logs:Z
+       env_file:
+         - .env
+       depends_on:
+         - redis
+       restart: always
+
+     redis:
+       image: docker.io/redis:alpine
+       ports:
+         - "6379:6379"
+       restart: always
+   ```
+
+   Note the `:Z` suffix on volume mounts, which is important for SELinux systems like Fedora.
+
+2. **Build and Run the Containers**:
 
    ```bash
-   docker-compose up -d --build
+   # Using podman-compose
+   podman-compose up -d --build
+
+   # OR using podman play kube (converts docker-compose to k8s)
+   podman-compose generate-k8s > nid-extractor-kube.yaml
+   podman play kube nid-extractor-kube.yaml
    ```
 
 3. **Scale Workers if Needed**:
 
    ```bash
-   docker-compose up -d --scale worker=3
+   podman-compose up -d --scale worker=3
    ```
 
 4. **Check Logs**:
 
    ```bash
-   docker-compose logs -f api
+   podman logs -f nid-checker-api_api_1
    ```
 
 5. **Stop the Services**:
+
    ```bash
-   docker-compose down
+   podman-compose down
    ```
+
+6. **Run as a Systemd Service** (one advantage of Podman over Docker):
+
+   ```bash
+   # Generate service files
+   mkdir -p ~/.config/systemd/user
+   cd ~/.config/systemd/user
+
+   # Generate service file for API container
+   podman generate systemd --name nid-checker-api_api_1 --files
+
+   # Generate service file for worker container
+   podman generate systemd --name nid-checker-api_worker_1 --files
+
+   # Generate service file for redis container
+   podman generate systemd --name nid-checker-api_redis_1 --files
+
+   # Enable and start the services
+   systemctl --user enable container-nid-checker-api_api_1.service
+   systemctl --user enable container-nid-checker-api_worker_1.service
+   systemctl --user enable container-nid-checker-api_redis_1.service
+
+   systemctl --user start container-nid-checker-api_api_1.service
+   systemctl --user start container-nid-checker-api_worker_1.service
+   systemctl --user start container-nid-checker-api_redis_1.service
+   ```
+
+   This will make the services start automatically on boot.
 
 ## API Documentation
 
@@ -412,8 +438,14 @@ All API endpoints require HTTP Basic Authentication:
    - Do not store extracted data unless necessary and legal
 
 4. **Network Security**:
+
    - For production, place the API behind a reverse proxy like Nginx
    - Configure HTTPS to encrypt data in transit
+
+5. **Podman Security Benefits**:
+   - Rootless containers by default
+   - No daemon running as root
+   - Better isolation with SELinux integration on RHEL-based systems
 
 ## Performance Optimization
 
@@ -424,9 +456,9 @@ All API endpoints require HTTP Basic Authentication:
 
 2. **Scaling Workers**:
 
-   - Increase worker processes in docker-compose.yml:
-     ```yaml
-     docker-compose up -d --scale worker=3
+   - Increase worker processes:
+     ```bash
+     podman-compose up -d --scale worker=3
      ```
 
 3. **Redis Configuration**:
@@ -446,20 +478,26 @@ All API endpoints require HTTP Basic Authentication:
 
    - Check Redis connection
    - Verify Celery workers are running
-   - Check logs with `docker-compose logs worker`
+   - Check logs with `podman logs nid-checker-api_worker_1`
 
 3. **Memory Errors**:
 
    - Reduce concurrent workers
-   - Increase container memory limits
+   - Increase container memory limits with `--memory` flag
    - Consider upgrading hardware for production use
 
 4. **GPU Not Being Used**:
+
    - Verify CUDA installation with `nvidia-smi`
-   - Check that PyTorch can access GPU with:
-     ```python
-     import torch; print(torch.cuda.is_available())
+   - For Podman GPU access, ensure proper setup with:
+     ```bash
+     # Install nvidia-container-toolkit if needed
+     podman run --device nvidia.com/gpu=all your-container
      ```
+
+5. **Podman-Specific Issues**:
+   - SELinux conflicts: Add `:z` or `:Z` suffix to volume mounts
+   - Network connectivity: Use `--network=host` for simpler networking
 
 ## Privacy and Compliance
 
