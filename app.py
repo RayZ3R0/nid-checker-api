@@ -2,198 +2,176 @@ import os
 import cv2
 import difflib
 import logging
-import time
-from flask import Flask, request, jsonify
+import uuid
+from flask import Flask, request, jsonify, g, after_this_request
 from werkzeug.utils import secure_filename
 from tempfile import NamedTemporaryFile
 from nid_extractor import extract_nid_fields
-from utils import ensure_cache_dir, cleanup_file, allowed_file
-from config import MAX_CONTENT_LENGTH, CACHE_DIR
-from auth import auth  # Import the authentication module
-from tasks import process_image_async  # Import the Celery task
+from utils import (
+    ensure_cache_dir, 
+    cleanup_file, 
+    allowed_file, 
+    validate_file_mime, 
+    authenticate, 
+    rate_limit, 
+    handle_exceptions,
+    CACHE_DIR
+)
+from config import MAX_CONTENT_LENGTH, SECURITY_HEADERS
 
 # Configure app-level logging.
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[
-        logging.FileHandler("app.log"),
-        logging.StreamHandler()
-    ]
+    format='%(asctime)s [%(levelname)s] %(message)s'
 )
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
-# Set timeout for waiting on Celery tasks (in seconds)
-TASK_TIMEOUT = 60  # Adjust based on your typical processing time
+# Apply security headers to all responses
+@app.after_request
+def set_security_headers(response):
+    for header, value in SECURITY_HEADERS.items():
+        response.headers[header] = value
+    return response
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return jsonify({"error": "Endpoint not found"}), 404
+
+@app.errorhandler(405)
+def method_not_allowed(e):
+    return jsonify({"error": "Method not allowed"}), 405
+
+@app.errorhandler(413)
+def request_entity_too_large(e):
+    return jsonify({"error": "File too large"}), 413
 
 @app.route('/', methods=['GET'])
+@handle_exceptions
 def index():
     return jsonify({"message": "NID Extractor API is running."})
 
 @app.route('/process_image', methods=['POST'])
-@auth.login_required
+@authenticate
+@rate_limit
+@handle_exceptions
 def process_image():
+    """
+    Process an uploaded image, parse extra data, and return the extracted
+    information along with similarity ratings. Adds:
+      - Granular error handling
+      - Security via file validation
+      - Token authentication
+      - Rate limiting
+      - Resource management with a temporary file in the configured cache directory
+    """
+    # Generate a request ID for traceability
+    request_id = str(uuid.uuid4())
+    logger.info(f"Request {request_id}: Processing new image")
+    
+    # Validate that an image file was provided.
+    if 'image' not in request.files:
+        logger.warning(f"Request {request_id}: No image provided")
+        return jsonify({'error': 'No image provided'}), 400
+    
+    file = request.files['image']
+    if file.filename == "":
+        logger.warning(f"Request {request_id}: Empty filename")
+        return jsonify({'error': 'Empty filename'}), 400
+    
+    # Validate file extension
+    if not allowed_file(file.filename):
+        logger.warning(f"Request {request_id}: File type not allowed")
+        return jsonify({'error': 'File type not allowed'}), 400
+    
+    # Ensure cache directory exists
     try:
-        # Save the uploaded file
-        if 'image' not in request.files:
-            return jsonify({'error': 'No image provided'}), 400
-        
-        file = request.files['image']
-        if file.filename == '':
-            return jsonify({'error': 'No selected file'}), 400
-        
-        # Create a secure filename and save the file
-        filename = secure_filename(file.filename)
-        temp_path = os.path.join(CACHE_DIR, f'tmp{next(tempfile._get_candidate_names())}.jpg')
-        os.makedirs(CACHE_DIR, exist_ok=True)
-        file.save(temp_path)
-        app.logger.info(f"Saved uploaded image to {temp_path}")
-        
-        # Get comparison data if provided
-        name_to_compare = request.form.get('Name', '')
-        dob_to_compare = request.form.get('Date of Birth', '')
-        
-        # Submit task to Celery
-        task = process_image_async.delay(temp_path)
-        app.logger.info(f"Submitted image processing task: {task.id}")
-        
-        # Wait for result with timeout
-        try:
-            result = task.get(timeout=TASK_TIMEOUT)
-            app.logger.info(f"Task {task.id} completed within timeout")
-            
-            # Add comparison results if data was provided
-            if name_to_compare or dob_to_compare:
-                result = add_comparison_data(result, name_to_compare, dob_to_compare)
-            
-            return jsonify(result)
-        except TimeoutError:
-            app.logger.info(f"Task {task.id} not completed within timeout: The operation timed out.")
-            return jsonify({
-                'status': 'processing',
-                'task_id': task.id,
-                'message': 'Image processing is taking longer than expected. Check back using the task_id.'
-            })
-            
+        ensure_cache_dir()
     except Exception as e:
-        app.logger.error(f"Error processing image: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/check_task/<task_id>', methods=['GET'])
-@auth.login_required
-def check_task(task_id):
-    """
-    Check the status of a previously submitted task
-    """
+        logger.error(f"Request {request_id}: Cache directory error - {str(e)}")
+        return jsonify({'error': 'Server configuration error'}), 500
+    
+    # Create a temporary file in the cache directory with a secure random name
     try:
-        # Import here to avoid circular imports
-        from tasks import celery_app
-        
-        # Check task status
-        task = celery_app.AsyncResult(task_id)
-        
-        if task.ready():
-            # Task is complete, get the result
-            result = task.get()
-            
-            # We don't have the form data here, so we can't calculate similarity
-            # The client would need to send that data again if needed
-            
-            return jsonify({
-                'status': 'complete',
-                'result': result
-            })
-        else:
-            # Task still processing
-            return jsonify({
-                'status': 'processing',
-                'task_id': task_id,
-                'message': 'Image is still being processed. Please check again later.'
-            })
-            
-    except Exception:
-        logger.exception(f"Error checking task status for {task_id}")
-        return jsonify({
-            'status': 'error',
-            'message': 'Error checking task status. The task ID may be invalid or expired.'
-        }), 400
+        with NamedTemporaryFile(dir=CACHE_DIR, suffix=".jpg", delete=False) as temp:
+            image_path = temp.name
+            file.save(image_path)
+            logger.info(f"Request {request_id}: Saved uploaded image to {image_path}")
+    except Exception as e:
+        logger.exception(f"Request {request_id}: Failed to save uploaded image - {str(e)}")
+        return jsonify({'error': 'Failed to process image upload'}), 500
 
-@app.route('/check_task_with_comparison/<task_id>', methods=['POST'])
-@auth.login_required
-def check_task_with_comparison(task_id):
-    """
-    Check the status of a previously submitted task and calculate similarity
-    with provided comparison data
-    """
+    # Double-check file type with MIME validation
+    if not validate_file_mime(image_path):
+        logger.warning(f"Request {request_id}: Invalid MIME type")
+        cleanup_file(image_path)
+        return jsonify({'error': 'Invalid file format'}), 400
+
+    # Open the image using OpenCV
     try:
-        # Import here to avoid circular imports
-        from tasks import celery_app
-        
-        # Check task status
-        task = celery_app.AsyncResult(task_id)
-        
-        if not task.ready():
-            # Task still processing
-            return jsonify({
-                'status': 'processing',
-                'task_id': task_id,
-                'message': 'Image is still being processed. Please check again later.'
-            })
-        
-        # Task is complete, get the result
-        result = task.get()
-        
-        # Get comparison data
+        image = cv2.imread(image_path)
+        if image is None:
+            logger.error(f"Request {request_id}: Failed to read image using OpenCV")
+            cleanup_file(image_path)
+            return jsonify({'error': 'Invalid image provided'}), 400
+    except Exception as e:
+        logger.exception(f"Request {request_id}: OpenCV error - {str(e)}")
+        cleanup_file(image_path)
+        return jsonify({'error': 'Image processing error'}), 500
+
+    # Extract NID fields
+    try:
+        result = extract_nid_fields(image)
+    except Exception as e:
+        logger.exception(f"Request {request_id}: OCR extraction error - {str(e)}")
+        cleanup_file(image_path)
+        return jsonify({'error': 'OCR processing failed'}), 500
+
+    # Retrieve extra data sent with the form
+    try:
         provided_name = request.form.get("Name", "").strip()
         provided_dob = request.form.get("Date of Birth", "").strip()
-        
-        # Process similarity ratings
-        process_similarity_ratings(result, provided_name, provided_dob)
-        
-        return jsonify({
-            'status': 'complete',
-            'result': result
-        })
-            
-    except Exception:
-        logger.exception(f"Error checking task status for {task_id}")
-        return jsonify({
-            'status': 'error',
-            'message': 'Error checking task status. The task ID may be invalid or expired.'
-        }), 400
+    except Exception as e:
+        logger.exception(f"Request {request_id}: Form data parsing error - {str(e)}")
+        provided_name = ""
+        provided_dob = ""
 
-def process_similarity_ratings(result, provided_name, provided_dob):
-    """
-    Calculate similarity ratings between provided and extracted data
-    """
     # Initialize similarity dictionary
-    if not provided_name and not provided_dob:
-        # No comparison data provided at all
-        result["similarity"] = {"status": "no_comparison_data_provided"}
-    else:
-        similarity = {"status": "partial_comparison", "name_similarity": None, "dob_similarity": None}
-        
-        # Process name similarity if available
-        extracted_name = result.get("Name", "").strip()
-        if provided_name and extracted_name:
-            similarity["name_similarity"] = round(
-                difflib.SequenceMatcher(None, provided_name.upper(), extracted_name.upper()).ratio(), 2)
-        elif provided_name:
-            similarity["name_similarity"] = "no_extracted_name_available"
+    try:
+        if not provided_name and not provided_dob:
+            # No comparison data provided at all
+            similarity = {"status": "no_comparison_data_provided"}
+        else:
+            similarity = {"status": "partial_comparison", "name_similarity": None, "dob_similarity": None}
             
-        # Process DOB similarity if available
-        extracted_dob = result.get("Date of birth", "").strip()
-        if provided_dob and extracted_dob:
-            similarity["dob_similarity"] = round(
-                difflib.SequenceMatcher(None, provided_dob.upper(), extracted_dob.upper()).ratio(), 2)
-        elif provided_dob:
-            similarity["dob_similarity"] = "no_extracted_dob_available"
+            # Process name similarity if available
+            extracted_name = result.get("Name", "").strip()
+            if provided_name and extracted_name:
+                similarity["name_similarity"] = round(
+                    difflib.SequenceMatcher(None, provided_name.upper(), extracted_name.upper()).ratio(), 2)
+            elif provided_name:
+                similarity["name_similarity"] = "no_extracted_name_available"
+                
+            # Process DOB similarity if available
+            extracted_dob = result.get("Date of birth", "").strip()
+            if provided_dob and extracted_dob:
+                similarity["dob_similarity"] = round(
+                    difflib.SequenceMatcher(None, provided_dob.upper(), extracted_dob.upper()).ratio(), 2)
+            elif provided_dob:
+                similarity["dob_similarity"] = "no_extracted_dob_available"
         
         result["similarity"] = similarity
+    except Exception as e:
+        logger.exception(f"Request {request_id}: Error calculating similarity - {str(e)}")
+        result["similarity"] = {"status": "error_calculating_similarity"}
+
+    # Clean up the temporary file
+    cleanup_file(image_path)
+    
+    logger.info(f"Request {request_id}: Processing complete")
+    return jsonify(result)
 
 if __name__ == '__main__':
-    # This is only for development
-    app.run(debug=False, host='0.0.0.0')
+    app.run(debug=False, host='0.0.0.0')  # Set debug to False in production

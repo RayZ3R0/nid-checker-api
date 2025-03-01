@@ -7,3 +7,4 @@ client.py
 .env
 *.log
 /cache
+testauth.py
