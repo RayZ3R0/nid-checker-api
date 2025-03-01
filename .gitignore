@@ -6,3 +6,4 @@
 client.py
 .env
 *.log
+/cache

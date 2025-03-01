@@ -27,74 +27,60 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
 # Set timeout for waiting on Celery tasks (in seconds)
-TASK_TIMEOUT = 15  # Adjust based on your typical processing time
+TASK_TIMEOUT = 60  # Adjust based on your typical processing time
 
 @app.route('/', methods=['GET'])
 def index():
     return jsonify({"message": "NID Extractor API is running."})
 
 @app.route('/process_image', methods=['POST'])
-@auth.login_required  # Add authentication requirement
+@auth.login_required
 def process_image():
-    """
-    Process an uploaded image, parse extra data, and return the extracted
-    information along with similarity ratings. Uses background processing with timeout.
-    """
-    # Validate that an image file was provided.
-    if 'image' not in request.files:
-        return jsonify({'error': 'No image provided'}), 400
-    
-    file = request.files['image']
-    if file.filename == "":
-        return jsonify({'error': 'Empty filename'}), 400
-    
-    # Validate file extension.
-    if not allowed_file(file.filename):
-        return jsonify({'error': 'File type not allowed'}), 400
-    
-    # Ensure cache directory exists.
-    ensure_cache_dir()
-    
-    # Create a temporary file in the cache directory.
     try:
-        with NamedTemporaryFile(dir=CACHE_DIR, suffix=".jpg", delete=False) as temp:
-            image_path = temp.name
-            file.save(image_path)
-            logger.info(f"Saved uploaded image to {image_path}")
-    except Exception:
-        logger.exception("Failed to save uploaded image.")
-        return jsonify({'error': 'Failed to process image upload'}), 500
-
-    # Retrieve extra data sent with the form for later use
-    provided_name = request.form.get("Name", "").strip()
-    provided_dob = request.form.get("Date of Birth", "").strip()
-
-    # Submit task to Celery worker
-    task = process_image_async.delay(image_path)
-    logger.info(f"Submitted image processing task: {task.id}")
-    
-    try:
-        # Wait for the task to complete with timeout
-        result = task.get(timeout=TASK_TIMEOUT)
+        # Save the uploaded file
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image provided'}), 400
         
-        # If we get here, the task completed within the timeout
-        logger.info(f"Task {task.id} completed within timeout")
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
         
-        # Process similarity ratings
-        process_similarity_ratings(result, provided_name, provided_dob)
+        # Create a secure filename and save the file
+        filename = secure_filename(file.filename)
+        temp_path = os.path.join(CACHE_DIR, f'tmp{next(tempfile._get_candidate_names())}.jpg')
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        file.save(temp_path)
+        app.logger.info(f"Saved uploaded image to {temp_path}")
         
-        # Return complete result
-        return jsonify(result)
-    
+        # Get comparison data if provided
+        name_to_compare = request.form.get('Name', '')
+        dob_to_compare = request.form.get('Date of Birth', '')
+        
+        # Submit task to Celery
+        task = process_image_async.delay(temp_path)
+        app.logger.info(f"Submitted image processing task: {task.id}")
+        
+        # Wait for result with timeout
+        try:
+            result = task.get(timeout=TASK_TIMEOUT)
+            app.logger.info(f"Task {task.id} completed within timeout")
+            
+            # Add comparison results if data was provided
+            if name_to_compare or dob_to_compare:
+                result = add_comparison_data(result, name_to_compare, dob_to_compare)
+            
+            return jsonify(result)
+        except TimeoutError:
+            app.logger.info(f"Task {task.id} not completed within timeout: The operation timed out.")
+            return jsonify({
+                'status': 'processing',
+                'task_id': task.id,
+                'message': 'Image processing is taking longer than expected. Check back using the task_id.'
+            })
+            
     except Exception as e:
-        logger.info(f"Task {task.id} not completed within timeout: {str(e)}")
-        
-        # Return task ID so client can check back
-        return jsonify({
-            'status': 'processing',
-            'task_id': task.id,
-            'message': 'Image processing is taking longer than expected. Check back using the task_id.'
-        })
+        app.logger.error(f"Error processing image: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/check_task/<task_id>', methods=['GET'])
 @auth.login_required

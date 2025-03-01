@@ -6,26 +6,37 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./logs:/app/logs
+      - ./logs:/app/logs:Z
+      - ./cache:/app/cache:Z  # Add this line to share cache directory
     env_file:
       - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
     depends_on:
       - redis
     restart: always
   
   worker:
     build: .
-    command: celery -A tasks worker --loglevel=info
+    command: celery -A tasks worker --loglevel=info --concurrency=1 --max-tasks-per-child=10
     volumes:
-      - ./logs:/app/logs
+      - ./logs:/app/logs:Z
+      - ./cache:/app/cache:Z
     env_file:
       - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
     depends_on:
       - redis
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
   
   redis:
-    image: redis:alpine
+    image: docker.io/redis:alpine
     ports:
-      - "6379:6379"
+      - "6380:6379"
     restart: always
