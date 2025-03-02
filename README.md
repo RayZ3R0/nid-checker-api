@@ -1,516 +1,243 @@
-# NID Card OCR Extractor with Podman (Linux)
+# Bangladesh National ID Card OCR Extractor
 
-## Table of Contents
+A robust API for extracting information from Bangladesh National ID Cards using OCR technology. This service provides a secure, rate-limited REST API that processes images and extracts key information such as name, date of birth, and ID number.
 
-- [Introduction](#introduction)
-- [Features](#features)
-- [System Requirements](#system-requirements)
-- [Installation](#installation)
-  - [Windows (using Docker)](#windows-using-docker)
-  - [macOS (using Docker)](#macos-using-docker)
-  - [Linux with Podman](#linux-with-podman)
-    - [Ubuntu/Debian](#linux-ubuntudebian)
-    - [Fedora](#linux-fedora)
-    - [Arch Linux](#linux-arch)
-- [Configuration](#configuration)
-- [Running the Application](#running-the-application)
-  - [Development Mode](#development-mode)
-  - [Production Mode with Podman](#production-mode-with-podman)
-- [API Documentation](#api-documentation)
-- [Security Considerations](#security-considerations)
-- [Performance Optimization](#performance-optimization)
-- [Troubleshooting](#troubleshooting)
-- [Privacy and Compliance](#privacy-and-compliance)
+![Bangladesh NID](https://i.imgur.com/example.png)
 
-## Introduction
+## 📋 Features
 
-The NID Card OCR Extractor is designed to automatically extract key information from National ID cards using advanced optical character recognition. The system processes ID card images and extracts personal information including name, date of birth, and ID number. It can also compare extracted data with provided information, offering a similarity score for verification purposes.
+- **Robust Text Extraction**: Uses EasyOCR with specialized patterns for Bangladesh ID cards
+- **High Accuracy**: Multiple pattern matching algorithms to handle various ID card formats
+- **Secure API**: Token-based authentication and request rate limiting
+- **Cross-Platform**: Works on both Windows and Linux environments
+- **Field Validation**: Validates extracted information against provided data
+- **Resource Management**: Efficient cleaning of temporary files
+- **Comprehensive Logging**: Detailed logs for debugging and auditing
 
-This tool is ideal for organizations requiring fast and accurate identity verification without manual data entry, such as financial institutions, government agencies, and businesses with strict KYC (Know Your Customer) requirements.
+## 🔧 Requirements
 
-## Features
+- Python 3.8+ (tested on Python 3.12 and 3.13)
+- Flask web framework
+- OpenCV for image processing
+- EasyOCR for text extraction
+- Storage space for model files (~100MB)
 
-- **Accurate Information Extraction**: Automatically extracts names, birth dates, and ID numbers from NID card images with high precision.
-- **Image Enhancement**: Processes and enhances low-quality images to improve OCR accuracy.
-- **Data Verification**: Compares extracted information with provided data and returns similarity scores.
-- **Scalable Architecture**: Uses Celery and Redis for background processing to handle high load scenarios.
-- **Secure API**: Implements authentication and secure file handling.
-- **Containerized Deployment**: Includes Podman configuration for rootless, secure deployment.
-- **Production-Ready**: Optimized for performance and security in production environments.
+## ⚙️ Installation
 
-## System Requirements
+### Common Setup (All Platforms)
 
-- Python 3.7+
-- 4GB+ RAM (8GB+ recommended for production)
-- 2GB+ free disk space
-- For GPU acceleration (optional): CUDA-compatible GPU with 4GB+ VRAM
-
-## Installation
-
-### Linux with Podman
-
-#### Linux (Ubuntu/Debian)
-
-1. **Update System and Install Prerequisites:**
+1. **Clone the repository:**
 
    ```bash
-   sudo apt update
-   sudo apt install -y python3 python3-pip python3-venv git libgl1-mesa-glx libglib2.0-0
+   git clone https://github.com/yourusername/nid-ocr-extractor.git
+   cd nid-ocr-extractor
    ```
 
-2. **Install Podman and Podman Compose:**
+2. **Create environment file:**
 
    ```bash
-   # For Ubuntu 20.04+
-   sudo apt install -y podman podman-compose
+   # Copy example environment file
+   cp .env.example .env
 
-   # If podman-compose is not available, install via pip
-   pip3 install podman-compose
+   # Generate secure tokens and update .env file
+   python -c "import secrets; print(f'SECRET_KEY={secrets.token_hex(32)}')"
+   python -c "import secrets; print(f'AUTH_TOKEN={secrets.token_hex(16)}')"
    ```
 
-3. **Clone the Repository:**
+### Windows Setup
 
-   ```bash
-   git clone https://github.com/yourusername/nid-ocr-project.git
-   cd nid-ocr-project
+1. **Create and activate virtual environment:**
+
+   ```powershell
+   python -m venv win_venv
+   win_venv\Scripts\activate
    ```
 
-4. **Create a Virtual Environment (for development):**
+2. **Install dependencies:**
 
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-
-5. **Install Dependencies (for development):**
-
-   ```bash
+   ```powershell
    pip install -r requirements.txt
-   python -m spacy download en_core_web_sm
+
+   # Windows needs python-magic-bin instead of python-magic
+   pip uninstall -y python-magic
+   pip install python-magic-bin
    ```
 
-6. **Install Redis (for development):**
-   ```bash
-   sudo apt install -y redis-server
-   sudo systemctl enable redis-server
-   sudo systemctl start redis-server
-   ```
+### Linux Setup
 
-#### Linux (Fedora)
-
-1. **Update System and Install Prerequisites:**
-
-   ```bash
-   sudo dnf update -y
-   sudo dnf install -y python3 python3-pip git mesa-libGL glib2
-   ```
-
-2. **Install Podman (pre-installed on most Fedora systems):**
-
-   ```bash
-   sudo dnf install -y podman podman-compose
-
-   # If podman-compose is not available
-   pip3 install podman-compose
-   ```
-
-3. **Clone the Repository:**
-
-   ```bash
-   git clone https://github.com/yourusername/nid-ocr-project.git
-   cd nid-ocr-project
-   ```
-
-4. **Create a Virtual Environment (for development):**
-
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-
-5. **Install Dependencies (for development):**
-
-   ```bash
-   pip install -r requirements.txt
-   python -m spacy download en_core_web_sm
-   ```
-
-6. **Install Redis (for development):**
-   ```bash
-   sudo dnf install -y redis
-   sudo systemctl enable redis
-   sudo systemctl start redis
-   ```
-
-#### Linux (Arch)
-
-1. **Update System and Install Prerequisites:**
-
-   ```bash
-   sudo pacman -Syu
-   sudo pacman -S python python-pip git mesa glib2
-   ```
-
-2. **Install Podman:**
-
-   ```bash
-   sudo pacman -S podman
-
-   # Install podman-compose via pip
-   pip install podman-compose
-   ```
-
-3. **Clone the Repository:**
-
-   ```bash
-   git clone https://github.com/yourusername/nid-ocr-project.git
-   cd nid-ocr-project
-   ```
-
-4. **Create a Virtual Environment (for development):**
+1. **Create and activate virtual environment:**
 
    ```bash
    python -m venv venv
    source venv/bin/activate
    ```
 
-5. **Install Dependencies (for development):**
+2. **Install system dependencies:**
 
+   For Debian/Ubuntu:
+
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y libgl1-mesa-glx libglib2.0-0 libsm6 libxext6 libxrender-dev
+   ```
+
+   For Arch Linux:
+
+   ```bash
+   sudo pacman -Syu
+   sudo pacman -S mesa glib2 libx11 libxext libxrender
+   ```
+
+3. **Install Python dependencies:**
    ```bash
    pip install -r requirements.txt
-   python -m spacy download en_core_web_sm
    ```
 
-6. **Install Redis (for development):**
-   ```bash
-   sudo pacman -S redis
-   sudo systemctl enable redis
-   sudo systemctl start redis
-   ```
+## 🚀 Usage
 
-## Configuration
+### Starting the Server
 
-1. **Create a .env file in the project root directory:**
+```bash
+# Start the Flask server
+python app.py
+```
 
-   ```
-   # API Authentication
-   API_USERNAME=admin
-   API_PASSWORD=change_this_password_in_production
+By default, the server runs on `http://localhost:5000`.
 
-   # OCR Parameters
-   MAX_CONTENT_LENGTH=5242880
-   CACHE_DIR=cache
-   OCR_BEAM_WIDTH=5
-   OCR_CONTRAST_THS=0.1
-   OCR_ADJUST_CONTRAST=0.5
-   OCR_TEXT_THRESHOLD=0.7
-   OCR_LOW_TEXT=0.4
-   OCR_LINK_THRESHOLD=0.4
+### Testing with the Client
 
-   # Redis configuration
-   REDIS_URL=redis://localhost:6379/0
-   ```
+The repository includes a client script for testing the API:
 
-2. **Warning**: Never commit the .env file to version control as it contains sensitive information.
+```bash
+# Basic usage with default settings
+python client.py --token YOUR_AUTH_TOKEN
 
-3. **Optional GPU Configuration**:
-   - If you have a CUDA-compatible GPU, the system will automatically detect and use it.
-   - Ensure you have installed the appropriate CUDA toolkit and drivers for your system.
+# Specify a custom image
+python client.py --image path/to/id/image.jpg --token YOUR_AUTH_TOKEN
 
-## Running the Application
+# Compare with known data
+python client.py --name "John Doe" --dob "15 Mar 1985" --token YOUR_AUTH_TOKEN
+```
 
-### Development Mode
+### API Endpoints
 
-1. **Start Redis** (if not already running):
+#### `GET /`
 
-   ```bash
-   # Linux
-   redis-server
+Health check endpoint that confirms the API is running.
 
-   # Or using podman
-   podman run -p 6379:6379 redis
-   ```
+#### `POST /process_image`
 
-2. **Start the Celery Worker**:
+Processes an ID card image and extracts information.
 
-   ```bash
-   # Activate your virtual environment first
-   source venv/bin/activate
+**Request Headers:**
 
-   # Run celery worker
-   celery -A tasks worker --loglevel=info
-   ```
+- `X-API-Token`: Your authentication token from .env file
 
-3. **Run the Flask Application**:
+**Form Data:**
 
-   ```bash
-   python app.py
-   ```
+- `image`: The image file (JPEG, PNG)
+- `Name` (optional): Name for comparison
+- `Date of Birth` (optional): Date of birth for comparison
 
-4. **Access the API**:
-   - The API will be running at `http://localhost:5000/`
-   - Use the test endpoint at `http://localhost:5000/` to verify the API is working
+**Response:**
 
-### Production Mode with Podman
-
-For production environments, we recommend using Podman:
-
-1. **Create or convert the docker-compose.yml to podman-compose.yml**:
-
-   ```yaml
-   version: "3"
-
-   services:
-     api:
-       build: .
-       ports:
-         - "5000:5000"
-       volumes:
-         - ./logs:/app/logs:Z
-       env_file:
-         - .env
-       depends_on:
-         - redis
-       restart: always
-
-     worker:
-       build: .
-       command: celery -A tasks worker --loglevel=info
-       volumes:
-         - ./logs:/app/logs:Z
-       env_file:
-         - .env
-       depends_on:
-         - redis
-       restart: always
-
-     redis:
-       image: docker.io/redis:alpine
-       ports:
-         - "6379:6379"
-       restart: always
-   ```
-
-   Note the `:Z` suffix on volume mounts, which is important for SELinux systems like Fedora.
-
-2. **Build and Run the Containers**:
-
-   ```bash
-   # Using podman-compose
-   podman-compose up -d --build
-
-   # OR using podman play kube (converts docker-compose to k8s)
-   podman-compose generate-k8s > nid-extractor-kube.yaml
-   podman play kube nid-extractor-kube.yaml
-   ```
-
-3. **Scale Workers if Needed**:
-
-   ```bash
-   podman-compose up -d --scale worker=3
-   ```
-
-4. **Check Logs**:
-
-   ```bash
-   podman logs -f nid-checker-api_api_1
-   ```
-
-5. **Stop the Services**:
-
-   ```bash
-   podman-compose down
-   ```
-
-6. **Run as a Systemd Service** (one advantage of Podman over Docker):
-
-   ```bash
-   # Generate service files
-   mkdir -p ~/.config/systemd/user
-   cd ~/.config/systemd/user
-
-   # Generate service file for API container
-   podman generate systemd --name nid-checker-api_api_1 --files
-
-   # Generate service file for worker container
-   podman generate systemd --name nid-checker-api_worker_1 --files
-
-   # Generate service file for redis container
-   podman generate systemd --name nid-checker-api_redis_1 --files
-
-   # Enable and start the services
-   systemctl --user enable container-nid-checker-api_api_1.service
-   systemctl --user enable container-nid-checker-api_worker_1.service
-   systemctl --user enable container-nid-checker-api_redis_1.service
-
-   systemctl --user start container-nid-checker-api_api_1.service
-   systemctl --user start container-nid-checker-api_worker_1.service
-   systemctl --user start container-nid-checker-api_redis_1.service
-   ```
-
-   This will make the services start automatically on boot.
-
-## API Documentation
-
-### Authentication
-
-All API endpoints require HTTP Basic Authentication:
-
-- Username: Set in .env as `API_USERNAME`
-- Password: Set in .env as `API_PASSWORD`
-
-### Endpoints
-
-#### 1. Root Endpoint
-
-- **URL**: `/`
-- **Method**: `GET`
-- **Description**: Test if the API is running.
-- **Response**: `{"message": "NID Extractor API is running."}`
-
-#### 2. Process Image
-
-- **URL**: `/process_image`
-- **Method**: `POST`
-- **Description**: Process an NID card image and extract information.
-
-- **Request parameters**:
-
-  - `image`: The image file (required)
-  - `Name`: Optional name for comparison
-  - `Date of Birth`: Optional DOB for comparison
-
-- **Response format**:
-  ```json
-  {
-    "Name": "John Doe",
-    "Date of birth": "01 Jan 1990",
-    "ID Number": "1234567890",
-    "Full extracted text": "...",
-    "similarity": {
-      "status": "partial_comparison",
-      "name_similarity": 0.85,
-      "dob_similarity": 0.92
-    }
+```json
+{
+  "Name": "MD SAMIM MIA",
+  "Date of birth": "07 Jun 1972",
+  "ID Number": "9116217028",
+  "Full extracted text": "...",
+  "similarity": {
+    "status": "no_comparison_data_provided"
   }
-  ```
-- **For long-running tasks** (response if processing exceeds timeout):
-  ```json
-  {
-    "status": "processing",
-    "task_id": "task-uuid-here",
-    "message": "Image processing is taking longer than expected. Check back using the task_id."
-  }
-  ```
+}
+```
 
-#### 3. Check Task Status
+## ⚠️ Common Issues and Troubleshooting
 
-- **URL**: `/check_task/<task_id>`
-- **Method**: `GET`
-- **Description**: Check status of a task that exceeded the timeout.
-- **Response**: Same as process_image when complete, or status update if still processing.
+### Windows Issues
 
-#### 4. Check Task with Comparison Data
+1. **libmagic not found error:**
 
-- **URL**: `/check_task_with_comparison/<task_id>`
-- **Method**: `POST`
-- **Description**: Check task status and add comparison data.
-- **Request parameters**:
-  - `Name`: Name for comparison
-  - `Date of Birth`: DOB for comparison
+   ```
+   ImportError: failed to find libmagic
+   ```
 
-## Security Considerations
+   **Solution:** Replace `python-magic` with `python-magic-bin`:
 
-1. **API Authentication**:
+   ```powershell
+   pip uninstall -y python-magic
+   pip install python-magic-bin
+   ```
 
-   - Change default credentials in production
-   - Consider using stronger authentication methods for sensitive deployments
+2. **DLL load failed error:**
+   ```
+   ImportError: DLL load failed while importing cv2
+   ```
+   **Solution:** Reinstall OpenCV:
+   ```powershell
+   pip uninstall -y opencv-python
+   pip install opencv-python
+   ```
 
-2. **File Uploads**:
+### Linux Issues
 
-   - The API validates file types and sizes
-   - Temporary files are automatically cleaned up after processing
+1. **OpenGL/libGL.so.1 error:**
 
-3. **Private Data**:
+   ```
+   ImportError: libGL.so.1: cannot open shared object file
+   ```
 
-   - NID cards contain sensitive personal information
-   - Ensure your application complies with data protection regulations
-   - Do not store extracted data unless necessary and legal
+   **Solution:** Install required libraries:
 
-4. **Network Security**:
+   ```bash
+   # For Ubuntu/Debian
+   sudo apt-get install -y libgl1-mesa-glx
 
-   - For production, place the API behind a reverse proxy like Nginx
-   - Configure HTTPS to encrypt data in transit
+   # For Arch Linux
+   sudo pacman -S mesa
+   ```
 
-5. **Podman Security Benefits**:
-   - Rootless containers by default
-   - No daemon running as root
-   - Better isolation with SELinux integration on RHEL-based systems
+2. **Permission denied for cache directory:**
+   ```
+   PermissionError: [Errno 13] Permission denied: 'cache'
+   ```
+   **Solution:** Check permissions:
+   ```bash
+   chmod 750 cache
+   ```
 
-## Performance Optimization
+## 🛠️ Configuration
 
-1. **Hardware Recommendations**:
+The application uses environment variables defined in .env for configuration:
 
-   - For production use with high traffic: 4+ CPU cores, 8GB+ RAM
-   - For GPU acceleration: NVIDIA GPU with 4GB+ VRAM
+| Variable           | Description                    | Default         |
+| ------------------ | ------------------------------ | --------------- |
+| SECRET_KEY         | Secret key for Flask           | Generated value |
+| AUTH_TOKEN         | API authentication token       | Generated value |
+| RATE_LIMIT         | Max requests per window        | 10              |
+| RATE_LIMIT_WINDOW  | Rate limit window in seconds   | 60              |
+| MAX_CONTENT_LENGTH | Max allowed file size in bytes | 5MB (5242880)   |
+| CACHE_DIR          | Directory for temporary files  | cache           |
 
-2. **Scaling Workers**:
+## 🔒 Security Notes
 
-   - Increase worker processes:
-     ```bash
-     podman-compose up -d --scale worker=3
-     ```
+1. Always use a strong, randomly generated AUTH_TOKEN
+2. The API implements rate limiting to prevent abuse
+3. Temporary files are automatically deleted after processing
+4. Input validation helps prevent malicious uploads
+5. Security headers mitigate common web vulnerabilities
 
-3. **Redis Configuration**:
-   - For high load, consider tuning Redis or moving to a dedicated instance
+## 📄 License
 
-## Troubleshooting
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-### Common Issues
+## 🙏 Acknowledgments
 
-1. **OCR Quality Problems**:
-
-   - Ensure images are clear and well-lit
-   - Try adjusting OCR parameters in .env
-   - For complex layouts, use preprocessing or consider training a custom model
-
-2. **Workers Not Processing**:
-
-   - Check Redis connection
-   - Verify Celery workers are running
-   - Check logs with `podman logs nid-checker-api_worker_1`
-
-3. **Memory Errors**:
-
-   - Reduce concurrent workers
-   - Increase container memory limits with `--memory` flag
-   - Consider upgrading hardware for production use
-
-4. **GPU Not Being Used**:
-
-   - Verify CUDA installation with `nvidia-smi`
-   - For Podman GPU access, ensure proper setup with:
-     ```bash
-     # Install nvidia-container-toolkit if needed
-     podman run --device nvidia.com/gpu=all your-container
-     ```
-
-5. **Podman-Specific Issues**:
-   - SELinux conflicts: Add `:z` or `:Z` suffix to volume mounts
-   - Network connectivity: Use `--network=host` for simpler networking
-
-## Privacy and Compliance
-
-This tool processes sensitive personal information from ID documents. Users must ensure:
-
-1. **Legal Basis**: Have a legal basis for processing ID documents
-2. **Consent**: Obtain proper consent where required
-3. **Data Minimization**: Only collect and store necessary data
-4. **Security**: Implement appropriate security measures
-5. **Compliance**: Adhere to relevant regulations such as GDPR, CCPA, etc.
-
-**Warning**: Misuse of this tool for identity theft or fraud is illegal. Users are responsible for ensuring their use of the NID Extractor complies with all applicable laws and regulations.
+- [EasyOCR](https://github.com/JaidedAI/EasyOCR) for the OCR engine
+- Flask team for the web framework
+- OpenCV contributors for image processing capabilities
 
 ---
 
-For additional support or contributions, please open an issue in the GitHub repository.
+**Note:** This software is intended for legitimate identity verification purposes. Please ensure compliance with local data protection and privacy regulations when handling personal identification information.
