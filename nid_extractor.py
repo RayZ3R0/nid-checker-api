@@ -97,29 +97,119 @@ def extract_nid_fields(image) -> dict:
             return nid_data
         
         # Extract full text from OCR results
-        full_text = ""
-        for detection in results:
-            full_text += detection[1] + " "
+        text_blocks = []
+        for result in results:
+            try:
+                if len(result) >= 2:  # As long as we have bbox and text
+                    text = result[1]
+                    text_blocks.append(text)
+            except Exception as e:
+                logger.exception(f"Error processing OCR result block: {e}")
+                continue
         
+        full_text = " ".join(text_blocks)
         nid_data['Full extracted text'] = full_text.strip()
         
-        # Extract name (assuming first line contains name)
-        name_pattern = r'(?:Name|NAME)[:]*\s*([A-Za-z\s]+)'
-        name_match = re.search(name_pattern, full_text)
-        if name_match:
-            nid_data['Name'] = name_match.group(1).strip()
+        # IMPROVED NAME PATTERNS
+        name_patterns = [
+            # Match "Name:" label followed by name until common boundaries
+            r'Name[:.]?\s+([A-Za-z\s\.]+?)(?=\s+(?:fet|ent|Date|Birth|DOB|NID|ID|No|\d)|\n|$)',
+            
+            # Match "Name:" label with Bengali characters possibly in between
+            r'Name[:.]?(?:[^\n:]{0,20})?([A-Za-z][A-Za-z\.\s]{3,30})(?=\s+(?:fet|ent|Date|Birth|DOB|NID|ID|No|\d)|\n|$)',
+            
+            # Common Bangladesh name format with "MD" or "Md." prefix
+            r'\b(?:MD|Md)\.?\s+([A-Za-z]+\s+[A-Za-z]+(?:\s+[A-Za-z]+)?)\b',
+            
+            # Common name patterns
+            r'\b([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b'
+        ]
         
-        # Extract date of birth
-        dob_pattern = r'(?:Date of Birth|DOB)[:]*\s*(\d{1,2}[\s-](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[\s-]\d{2,4})'
-        dob_match = re.search(dob_pattern, full_text, re.IGNORECASE)
-        if dob_match:
-            nid_data['Date of birth'] = dob_match.group(1).strip()
+        # Blacklist of phrases that should never be considered names
+        name_blacklist = [
+            "NATIONAL ID CARD", "ID CARD", "BANGLADESH", "GOVERNMENT", 
+            "PEOPLES", "REPUBLIC", "CARD", "NATIONAL", "DATE OF BIRTH"
+        ]
         
-        # Extract ID number
-        id_pattern = r'(?:ID|ID Number|No)[:]*\s*(\d{6,15})'
-        id_match = re.search(id_pattern, full_text, re.IGNORECASE)
-        if id_match:
-            nid_data['ID Number'] = id_match.group(1).strip()
+        for pattern in name_patterns:
+            name_match = re.search(pattern, full_text, re.IGNORECASE)
+            if name_match:
+                name_candidate = name_match.group(1).strip()
+                
+                # Skip if name is in blacklist
+                if any(blacklisted.lower() in name_candidate.lower() for blacklisted in name_blacklist):
+                    logger.info(f"Skipping blacklisted name: {name_candidate}")
+                    continue
+                    
+                # Validate name has reasonable length and format
+                if ' ' in name_candidate and 4 <= len(name_candidate) <= 40:
+                    nid_data['Name'] = name_candidate
+                    logger.info(f"Found valid name: {name_candidate}")
+                    break
+                elif len(name_candidate) > 5 and not re.search(r'\d', name_candidate):
+                    nid_data['Name'] = name_candidate
+                    logger.info(f"Found potential single-word name: {name_candidate}")
+                    # Don't break, keep looking for better matches
+        
+        # Extract date of birth with multiple patterns
+        dob_patterns = [
+            r'(?:Date of Birth|DOB|Birth)[:.]?\s*(\d{1,2}[\s-](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[\s-]\d{2,4})',
+            r'(?:Date of Birth|DOB|Birth)[:.]?\s*(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4})',
+            r'(\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})',
+            r'(\d{1,2}[\s-](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[\s-]\d{2,4})'
+        ]
+        
+        for pattern in dob_patterns:
+            dob_match = re.search(pattern, full_text, re.IGNORECASE)
+            if dob_match:
+                nid_data['Date of birth'] = dob_match.group(1).strip()
+                logger.info(f"Found date of birth: {dob_match.group(1).strip()}")
+                break
+        
+        # COMPREHENSIVE ID NUMBER PATTERNS
+        id_patterns = [
+            # Match "ID NO:" format 
+            r'ID\s*NO[:.]?\s*(\d[\d\s-]{5,18}\d)',
+            
+            # Match "NID No" format
+            r'NID\s*No[:.]?\s*(\d[\d\s-]{5,18}\d)',
+            
+            # Match exact Bangladesh NID format with spaces
+            r'\b(\d{3}\s+\d{3}\s+\d{4})\b',
+            
+            # Match exact Bangladesh NID format with no spaces
+            r'\b(\d{10}|\d{13}|\d{17})\b',
+            
+            # Match NID in machine-readable zone format
+            r'[<I]BGD(\d{9,})[<\d]',
+            
+            # Match any format with explicit ID label
+            r'(?:ID|NID|Number|No)[:.]\s*(\d[\d\s-]+\d)',
+            
+            # Match numbers with spaces or dashes
+            r'\b(\d{3}[\s-]?\d{3}[\s-]?\d{4})\b',
+            
+            # Last resort - match any 10+ digit sequence
+            r'\b(\d{10,})\b'
+        ]
+        
+        for pattern in id_patterns:
+            id_match = re.search(pattern, full_text)
+            if id_match:
+                id_text = id_match.group(1)
+                # Clean up spaces and dashes in the ID number
+                clean_id = re.sub(r'[\s-]', '', id_text)
+                
+                # Validate: Bangladesh NIDs are typically 10, 13, or 17 digits
+                if len(clean_id) in [10, 13, 17]:
+                    nid_data['ID Number'] = clean_id
+                    logger.info(f"Found valid ID number format: {clean_id} (length: {len(clean_id)})")
+                    break
+                else:
+                    # Even if length is unusual, keep it if it looks like an ID
+                    nid_data['ID Number'] = clean_id
+                    logger.info(f"Found ID with unusual length: {clean_id} (length: {len(clean_id)})")
+                    # Continue searching for better matches
         
         logger.info(f"Extraction completed: {nid_data}")
         return nid_data

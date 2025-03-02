@@ -3,8 +3,9 @@
 /venv
 /model
 /__pycache__
-client.py
 .env
 *.log
 /cache
 testauth.py
+win_venv
+ocr_result.json
