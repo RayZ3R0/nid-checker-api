@@ -112,27 +112,28 @@ def extract_nid_fields(image) -> dict:
         
         # IMPROVED NAME PATTERNS
         name_patterns = [
-            # Match "Name:" label followed by name until common boundaries
-            r'Name[:.]?\s+([A-Za-z\s\.]+?)(?=\s+(?:fet|ent|Date|Birth|DOB|NID|ID|No|\d)|\n|$)',
+            # Match "Name" followed by uppercase name (common on ID cards)
+            r'Name\s*[:.]?\s*([A-Z][A-Z\s\.]+)(?=\s+(?:fet|faot|ent|Date|Birth|DOB|NID|ID|No|\d)|\n|$)',
             
-            # Match "Name:" label with Bengali characters possibly in between
-            r'Name[:.]?(?:[^\n:]{0,20})?([A-Za-z][A-Za-z\.\s]{3,30})(?=\s+(?:fet|ent|Date|Birth|DOB|NID|ID|No|\d)|\n|$)',
+            # Match "Name:" label with very strict boundary
+            r'Name\s*[:.]?\s+([A-Za-z][A-Za-z\s\.]{2,30})(?=\s+(?:fet|faot|ent|Date|Birth|DOB|NID|ID|No|\d)|\n|$)',
             
             # Common Bangladesh name format with "MD" or "Md." prefix
-            r'\b(?:MD|Md)\.?\s+([A-Za-z]+\s+[A-Za-z]+(?:\s+[A-Za-z]+)?)\b',
+            r'\bM[dD]\.?\s+([A-Za-z]+\s+[A-Za-z]+(?:\s+[A-Za-z]+)?)\b',
             
-            # Common name patterns
-            r'\b([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b'
+            # Match all-caps names which are common on IDs (with stricter boundaries)
+            r'Name\s*[:.]?\s*([A-Z]+\s+[A-Z]+(?:\s+[A-Z]+)?)\b',
         ]
         
         # Blacklist of phrases that should never be considered names
         name_blacklist = [
             "NATIONAL ID CARD", "ID CARD", "BANGLADESH", "GOVERNMENT", 
-            "PEOPLES", "REPUBLIC", "CARD", "NATIONAL", "DATE OF BIRTH"
+            "PEOPLES", "REPUBLIC", "CARD", "NATIONAL", "DATE OF BIRTH",
+            "GOVERMENT", "soeezledt", "offthe", "Republic"
         ]
         
         for pattern in name_patterns:
-            name_match = re.search(pattern, full_text, re.IGNORECASE)
+            name_match = re.search(pattern, full_text)  # Remove IGNORECASE flag
             if name_match:
                 name_candidate = name_match.group(1).strip()
                 
